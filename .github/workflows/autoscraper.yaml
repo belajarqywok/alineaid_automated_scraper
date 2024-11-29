@@ -25,25 +25,23 @@ jobs:
           sudo apt-get update && sudo apt-get install -y \
             software-properties-common \
             gnupg \
-            wget \
             gcc \
             python3-dev \
-            unzip \
             chromium-browser
           pip install selenium cython bs4
 
-      - name: Install Compatible ChromeDriver
+      - name: Install Compatible Chromium and ChromeDriver
         run: |
-          # Get Chromium version
-          CHROME_VERSION=$(chromium-browser --version | awk '{print $2}' | cut -d'.' -f1)
-          echo "Detected Chromium Version: $CHROME_VERSION"
-
-          # Get compatible ChromeDriver version
-          DRIVER_VERSION=$(curl -s https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION)
-          echo "Detected ChromeDriver Version: $DRIVER_VERSION"
-
-          # Download ChromeDriver
-          wget https://chromedriver.storage.googleapis.com/$DRIVER_VERSION/chromedriver_linux64.zip
+          CHROMIUM_VERSION=$(chromium-browser --version | awk '{print $2}' | cut -d'.' -f1)
+          echo "Detected Chromium Version: $CHROMIUM_VERSION"
+          
+          DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROMIUM_VERSION" || echo "null")
+          if [ "$DRIVER_VERSION" = "null" ]; then
+            echo "No compatible ChromeDriver found. Using default version: 130.0.0"
+            DRIVER_VERSION="130.0.0"
+          fi
+          
+          wget "https://chromedriver.storage.googleapis.com/$DRIVER_VERSION/chromedriver_linux64.zip"
           unzip chromedriver_linux64.zip -d /usr/local/bin/
           chmod +x /usr/local/bin/chromedriver
           rm chromedriver_linux64.zip

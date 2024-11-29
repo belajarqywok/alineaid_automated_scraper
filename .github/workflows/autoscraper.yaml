@@ -51,7 +51,7 @@ jobs:
       - name: Install Chromium v90.0.4430.72
         run: |
           wget https://www.slimjet.com/chrome/download-chrome.php?file=files%2F90.0.4430.72%2Fgoogle-chrome-stable_current_amd64.deb
-          dpkg -i $(ls | grep .deb)
+          sudo dpkg -i $(ls | grep .deb)
           rm $(ls | grep .deb)
           google-chrome-stable --version
 

@@ -6,7 +6,8 @@ on:
       - main
       
   schedule:
-    - cron: "0 0/2 * * *"
+    - cron: "0 9 * * *"
+    # 16 - 7 = 9
 
 jobs:
   auto_commit:
@@ -19,7 +20,27 @@ jobs:
           persist-credentials: false
           fetch-depth: 1
 
+      - name: Read pipeline schedule date
+        id: read_schedule
+        run: |
+          SCHEDULE_DATE=$(cat schedule.ctl)
+          echo "schedule_date=${SCHEDULE_DATE}" >> $GITHUB_ENV
+
+      - name: Get current date
+        id: get_date
+        run: echo "current_date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Check if dates match
+        id: date_check
+        run: |
+          if [ "$schedule_date" = "$current_date" ]; then
+            echo "match=true" >> $GITHUB_ENV
+          else
+            echo "match=false" >> $GITHUB_ENV
+          fi
+
       - name: Setup GPG for Chromium
+        if: env.match != 'true'
         run: |
           sudo bash -c 'cat > /etc/apt/sources.list.d/debian.list <<EOF
           deb [arch=amd64 signed-by=/usr/share/keyrings/debian-buster.gpg] http://deb.debian.org/debian buster main
@@ -50,6 +71,7 @@ jobs:
           EOF'
 
       - name: Install Cython, Selenium, Chromium, etc.
+        if: env.match != 'true'
         run: |
           sudo apt-get update && \
           sudo apt-get install -y \
@@ -57,6 +79,7 @@ jobs:
           pip install selenium cython bs4
 
       - name: Install Chromium v90.0.4430.72
+        if: env.match != 'true'
         run: |
           wget https://www.slimjet.com/chrome/download-chrome.php?file=files%2F90.0.4430.72%2Fgoogle-chrome-stable_current_amd64.deb
           sudo dpkg -i $(ls | grep .deb)
@@ -64,27 +87,28 @@ jobs:
           google-chrome-stable --version
 
       - name: Build Cython Modules and Run Scraper
+        if: env.match != 'true'
         run: |
           python setup.py build_ext --inplace
           python scraper.py \
             --iterations 1000 --workers 15
+          rm links.json
 
-      - name: Check for changes
-        id: check_changes
+      - name: Set Pipeline Schedule
+        if: env.match != 'true'
+        run: echo "$(date +'%Y-%m-%d')" > schedule.ctl
+
+      - name: Commit changes
+        if: env.match != 'true'
         run: |
           git config --local user.email "belajarqywok@gmail.com"
           git config --local user.name "belajarqywok"
           git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to commit"
-            echo "has_changes=false" >> $GITHUB_ENV
-          else
-            echo "Changes detected"
-            echo "has_changes=true" >> $GITHUB_ENV
-          fi
-
-      - name: Commit and push changes
-        if: env.has_changes == 'true'
-        run: |
           git commit -m "Update Datasets"
-          git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} main
+
+      - name: Push changes
+        if: env.match != 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GH_TOKEN }}
+          branch: main 

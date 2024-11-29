@@ -30,13 +30,13 @@ def fetch_and_parse(url):
           content = ' '.join(paragraphs)
           return {'title': title, 'url': url, 'content': content}
 
-        else: print(f"div not found for url: {url}")
+        else: print(f"[ FAILED ]: div not found for url -> {url}")
 
-      else: print(f"title element not found for url: {url}")
+      else: print(f"[ FAILED ]: title element not found for url -> {url}")
 
-    else: print(f"failed to retrieve the page. status code: {response.status_code} for url: {url}")
+    else: print(f"[ FAILED ]: failed to retrieve the page. status code -> {response.status_code} for url -> {url}")
 
-  except Exception as e: print(f"{url} :{e}"); return None
+  except Exception as e: print(f"[ FAILED ]: {url} :{e}"); return None
 
 
 def save_contents(workers):
@@ -57,4 +57,4 @@ def save_contents(workers):
 
       for future in as_completed(future_to_url):
         result = future.result()
-        if result: writer.writerow(result); print(result)
+        if result: writer.writerow(result); print(f"[ SUCCESS ]: {result['title']}")

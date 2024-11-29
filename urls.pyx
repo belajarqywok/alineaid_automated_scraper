@@ -136,5 +136,5 @@ def save_urls(int iteration):
   browser.execute_script(jscode(iteration))
 
   while True:
-    if os.path.exists("links.json"): print("Success.."); break
+    if os.path.exists("links.json"): break
     else: time.sleep(1)

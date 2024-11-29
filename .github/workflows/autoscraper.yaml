@@ -27,8 +27,7 @@ jobs:
             gnupg \
             gcc \
             python3-dev \
-            chromium \
-            chromium-driver
+            chromium-browser chromium-chromedriver
           pip install selenium cython bs4
 
       - name: Install Compatible ChromeDriver

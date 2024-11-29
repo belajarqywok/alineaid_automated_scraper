@@ -14,43 +14,60 @@ jobs:
     steps:
       - name: Set global directory
         run: git config --global --add safe.directory /github/workspace
-
       - uses: actions/checkout@v3     
         with:
           persist-credentials: false
           fetch-depth: 1
 
-      - name: Install dependencies
+      - name: Setup GPG for Chromium
         run: |
-          sudo apt-get update && sudo apt-get install -y \
-            software-properties-common \
-            gnupg \
-            gcc \
-            python3-dev \
-            chromium-browser
+          sudo cat > /etc/apt/sources.list.d/debian.list <<'EOF'
+          deb [arch=amd64 signed-by=/usr/share/keyrings/debian-buster.gpg] http://deb.debian.org/debian buster main
+          deb [arch=amd64 signed-by=/usr/share/keyrings/debian-buster-updates.gpg] http://deb.debian.org/debian buster-updates main
+          deb [arch=amd64 signed-by=/usr/share/keyrings/debian-security-buster.gpg] http://deb.debian.org/debian-security buster/updates main
+          EOF
+
+          apt-key adv --keyserver keyserver.ubuntu.com --recv-keys DCC9EFBF77E11517
+          apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 648ACFD622F3D138
+          apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 112695A0E562B32A
+
+          apt-key export 77E11517 | gpg --dearmour -o /usr/share/keyrings/debian-buster.gpg
+          apt-key export 22F3D138 | gpg --dearmour -o /usr/share/keyrings/debian-buster-updates.gpg
+          apt-key export E562B32A | gpg --dearmour -o /usr/share/keyrings/debian-security-buster.gpg
+
+          sudo cat > /etc/apt/preferences.d/chromium.pref << 'EOF'
+          Package: *
+          Pin: release a=eoan
+          Pin-Priority: 500
+
+          Package: *
+          Pin: origin "deb.debian.org"
+          Pin-Priority: 300
+
+          Package: chromium*
+          Pin: origin "deb.debian.org"
+          Pin-Priority: 700
+          EOF
+
+      - name: Install Cython, Selenium, Chromium, etc.
+        run: |
+          sudo apt-get update && \
+          sudo apt-get install -y \
+            gcc python3-dev gnupg chromium chromium-driver
           pip install selenium cython bs4
 
-      - name: Install Compatible Chromium and ChromeDriver
+      - name: Install Chromium v90.0.4430.72
         run: |
-          CHROMIUM_VERSION=$(chromium-browser --version | awk '{print $2}' | cut -d'.' -f1)
-          echo "Detected Chromium Version: $CHROMIUM_VERSION"
-          
-          DRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROMIUM_VERSION" || echo "null")
-          if [ "$DRIVER_VERSION" = "null" ]; then
-            echo "No compatible ChromeDriver found. Using default version: 130.0.0"
-            DRIVER_VERSION="130.0.0"
-          fi
-          
-          wget "https://chromedriver.storage.googleapis.com/$DRIVER_VERSION/chromedriver_linux64.zip"
-          unzip chromedriver_linux64.zip -d /usr/local/bin/
-          chmod +x /usr/local/bin/chromedriver
-          rm chromedriver_linux64.zip
-          chromedriver --version
+          wget https://www.slimjet.com/chrome/download-chrome.php?file=files%2F90.0.4430.72%2Fgoogle-chrome-stable_current_amd64.deb
+          sudo dpkg -i $(ls | grep .deb)
+          rm $(ls | grep .deb)
+          google-chrome-stable --version
 
       - name: Build Cython Modules and Run Scraper
         run: |
           python setup.py build_ext --inplace
-          python scraper.py --iterations 1000 --workers 15
+          python scraper.py \
+            --iterations 1000 --workers 15
 
       - name: Check for changes
         id: check_changes
@@ -66,7 +83,7 @@ jobs:
             echo "has_changes=true" >> $GITHUB_ENV
           fi
 
-      - name: Commit and Push Changes
+      - name: Commit and push changes
         if: env.has_changes == 'true'
         run: |
           git commit -m "Update Datasets"

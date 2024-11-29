@@ -6,7 +6,7 @@ on:
       - main
       
   schedule:
-  - cron: "0 0/2 * * *"
+    - cron: "0 0/2 * * *"
 
 jobs:
   auto_commit:
@@ -16,12 +16,12 @@ jobs:
         run: git config --global --add safe.directory /github/workspace
       - uses: actions/checkout@v3     
         with:
-         persist-credentials: false
-         fetch-depth: 1
+          persist-credentials: false
+          fetch-depth: 1
 
-      - name: Setup GPG for chromium
+      - name: Setup GPG for Chromium
         run: |
-          cat > /etc/apt/sources.list.d/debian.list <<'EOF'
+          sudo cat > /etc/apt/sources.list.d/debian.list <<'EOF'
           deb [arch=amd64 signed-by=/usr/share/keyrings/debian-buster.gpg] http://deb.debian.org/debian buster main
           deb [arch=amd64 signed-by=/usr/share/keyrings/debian-buster-updates.gpg] http://deb.debian.org/debian buster-updates main
           deb [arch=amd64 signed-by=/usr/share/keyrings/debian-security-buster.gpg] http://deb.debian.org/debian-security buster/updates main
@@ -31,7 +31,7 @@ jobs:
           curl -fsSL https://ftp-master.debian.org/keys/archive-key-10.asc -o /usr/share/keyrings/debian-buster-updates.gpg
           curl -fsSL https://ftp-master.debian.org/keys/archive-key-10.asc -o /usr/share/keyrings/debian-security-buster.gpg
 
-          cat > /etc/apt/preferences.d/chromium.pref << 'EOF'
+          sudo cat > /etc/apt/preferences.d/chromium.pref << 'EOF'
           Package: *
           Pin: release a=eoan
           Pin-Priority: 500
@@ -64,17 +64,23 @@ jobs:
           python setup.py build_ext --inplace
           python scraper.py \
             --iterations 1000 --workers 15
-          
-      - name: Commit changes
+
+      - name: Check for changes
+        id: check_changes
         run: |
           git config --local user.email "belajarqywok@gmail.com"
           git config --local user.name "belajarqywok"
           git add -A
-          git commit -m "Update Datasets"
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_ENV
+          else
+            echo "Changes detected"
+            echo "has_changes=true" >> $GITHUB_ENV
+          fi
 
-      - name: Push changes
-        uses: ad-m/github-push-action@master
-        with:
-          github_token: ${{ secrets.GH_TOKEN }}
-          branch: main
-  
+      - name: Commit and push changes
+        if: env.has_changes == 'true'
+        run: |
+          git commit -m "Update Datasets"
+          git push https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ github.repository }} main

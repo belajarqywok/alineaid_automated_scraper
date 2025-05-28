@@ -3,7 +3,8 @@ name: Alineaid Automated Scraper
 on:
   push:
     branches:
-      - main
+      # - main
+      - abcdefg
       
   schedule:
     - cron: "0 9 * * *"
